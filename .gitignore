@@ -1,0 +1,35 @@
+# Secrets
+.env
+*.key
+
+# Browser session / auth state
+storage_state.json
+.auth/
+browser_profile/
+
+# Data
+data/
+*.db
+*.sqlite
+*.sqlite3
+attachments/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
