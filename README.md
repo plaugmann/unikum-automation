@@ -53,6 +53,10 @@ cp .env.example .env      # udfyld OPENAI_API_KEY og FEED_TOKEN
 .\.venv\Scripts\python.exe -m unikum.cli serve
 ```
 
+Serveren indlæser `serve.py` én gang ved opstart. Ændrer du feedets udseende,
+skal den genstartes — eller startes med `serve --reload` under udvikling.
+Resuméerne læses derimod fra databasen ved hvert kald og er altid friske.
+
 ## Udgange
 
 Begge kræver `?token=<FEED_TOKEN>`.

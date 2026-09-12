@@ -68,7 +68,15 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     print(f"Feed:   {config.PUBLIC_BASE_URL}/feed.xml?token=...")
     print(f"Skaerm: {config.PUBLIC_BASE_URL}/display.json?token=...")
-    uvicorn.run("unikum.serve:app", host=args.host, port=args.port, log_level="info")
+    if args.reload:
+        print("Genindlaeser automatisk ved kodeaendringer.")
+    uvicorn.run(
+        "unikum.serve:app",
+        host=args.host,
+        port=args.port,
+        log_level="info",
+        reload=args.reload,
+    )
     return 0
 
 
@@ -94,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
     p_serve = sub.add_parser("serve", help="Start webserveren med feed og skaermdata")
     p_serve.add_argument("--host", default=None)
     p_serve.add_argument("--port", type=int, default=None)
+    p_serve.add_argument("--reload", action="store_true",
+                         help="Genindlaes koden ved aendringer (til udvikling)")
     p_serve.set_defaults(fn=cmd_serve)
 
     args = parser.parse_args(argv)
