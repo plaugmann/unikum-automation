@@ -10,6 +10,7 @@ from __future__ import annotations
 import hmac
 from datetime import datetime, timezone
 from email.utils import format_datetime
+from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from fastapi import FastAPI, HTTPException, Query
@@ -18,6 +19,20 @@ from fastapi.responses import JSONResponse, Response
 from . import config, db
 
 app = FastAPI(title="Unikum-feed", docs_url=None, redoc_url=None)
+
+
+def _code_version() -> str:
+    """Tidsstempel for den kode, der faktisk koerer.
+
+    Uvicorn indlaeser dette modul én gang ved opstart. Redigerer man feedet
+    og glemmer at genstarte, serveres den gamle udgave videre - og det ligner
+    en fejl i indholdet i stedet for en gammel proces. Stemplet i <generator>
+    goer forskellen synlig med det samme.
+    """
+    from datetime import datetime
+
+    mtime = Path(__file__).stat().st_mtime
+    return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
 
 CATEGORY_LABEL = {
     "LEKTIE": "Lektie",
@@ -93,6 +108,7 @@ def feed(token: str = Query(...), limit: int = Query(60, ge=1, le=300)) -> Respo
     ET.SubElement(channel, "lastBuildDate").text = format_datetime(
         datetime.now(timezone.utc)
     )
+    ET.SubElement(channel, "generator").text = f"unikum-automation (kode: {_code_version()})"
 
     for item in items:
         node = ET.SubElement(channel, "item")
