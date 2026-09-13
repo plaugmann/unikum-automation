@@ -27,6 +27,26 @@ function safeEqual(a, b) {
   return diff === 0;
 }
 
+/**
+ * Sammenlign If-None-Match med vores ETag.
+ *
+ * Cloudflare komprimerer svaret og saetter derfor "W/" foran vores ETag,
+ * naar den naar klienten. Klienten sender den svage form tilbage, saa en
+ * ordret sammenligning rammer aldrig - og telefonen henter hele feedet hver
+ * gang i stedet for at faa 304. Vi sammenligner derfor uden praefikset.
+ * Headeren kan desuden indeholde flere vaerdier adskilt af komma, og "*"
+ * matcher alt.
+ */
+function matchesEtag(header, etag) {
+  if (!header) return false;
+  const strip = (v) => v.trim().replace(/^W\//, "");
+  const ours = strip(etag);
+  return header.split(",").some((v) => {
+    const candidate = strip(v);
+    return candidate === "*" || candidate === ours;
+  });
+}
+
 function bearer(request) {
   const header = request.headers.get("Authorization") || "";
   return header.startsWith("Bearer ") ? header.slice(7) : "";
@@ -78,7 +98,7 @@ export default {
     const etag = metadata && metadata.hash ? `"${metadata.hash}"` : null;
     // RSS-laesere henter tit. Svarer vi 304, naar intet er aendret, sparer
     // vi baade data og batteri paa telefonen.
-    if (etag && request.headers.get("If-None-Match") === etag) {
+    if (etag && matchesEtag(request.headers.get("If-None-Match"), etag)) {
       return new Response(null, { status: 304, headers: { ETag: etag } });
     }
 

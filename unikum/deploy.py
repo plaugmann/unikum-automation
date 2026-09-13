@@ -48,14 +48,42 @@ def _settings() -> dict:
     }
 
 
-def _client() -> httpx.Client:
-    if not config.CF_API_TOKEN or not config.CF_ACCOUNT_ID:
+ACCOUNT_ID_PATTERN = re.compile(r"[0-9a-f]{32}")
+
+
+def resolve_account_id(token: str) -> str:
+    """Slaa konto-ID'et op, hvis det ikke staar korrekt i .env.
+
+    Cloudflare viser baade en konto-mail og et konto-ID, og de er nemme at
+    forveksle. ID'et er 32 hex-tegn. Ser vaerdien forkert ud, spoerger vi
+    bare API'et i stedet for at fejle paa noget, vi selv kan finde ud af.
+    """
+    if ACCOUNT_ID_PATTERN.fullmatch(config.CF_ACCOUNT_ID):
+        return config.CF_ACCOUNT_ID
+
+    res = httpx.get(
+        f"{API}/accounts", headers={"Authorization": f"Bearer {token}"}, timeout=60.0
+    )
+    accounts = _result(res, "kunne ikke hente kontoen") or []
+    if not accounts:
+        raise DeployError("Tokenen har ikke adgang til nogen konto.")
+    if len(accounts) > 1:
+        navne = ", ".join(f"{a['name']} ({a['id']})" for a in accounts)
         raise DeployError(
-            "CF_API_TOKEN og CF_ACCOUNT_ID mangler i .env. "
-            "Opret en token med Workers Scripts: Edit og Workers KV Storage: Edit."
+            f"Tokenen har adgang til flere konti - saet CF_ACCOUNT_ID i .env: {navne}"
         )
+    return accounts[0]["id"]
+
+
+def _client() -> httpx.Client:
+    if not config.CF_API_TOKEN:
+        raise DeployError(
+            "CF_API_TOKEN mangler i .env. Opret en token med "
+            "Workers Scripts: Edit og Workers KV Storage: Edit."
+        )
+    account_id = resolve_account_id(config.CF_API_TOKEN)
     return httpx.Client(
-        base_url=f"{API}/accounts/{config.CF_ACCOUNT_ID}",
+        base_url=f"{API}/accounts/{account_id}",
         headers={"Authorization": f"Bearer {config.CF_API_TOKEN}"},
         timeout=120.0,
     )

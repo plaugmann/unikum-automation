@@ -56,6 +56,17 @@ check("uaendret giver 304", (await call("GET", "/feed.xml", {
 check("aendret giver 200", (await call("GET", "/feed.xml", {
   token: env.FEED_TOKEN, headers: { "If-None-Match": '"gammel"' },
 })).status, 200);
+// Cloudflare saetter W/ foran vores ETag, naar svaret komprimeres, og
+// klienten sender den svage form tilbage.
+check("svag ETag giver ogsaa 304", (await call("GET", "/feed.xml", {
+  token: env.FEED_TOKEN, headers: { "If-None-Match": 'W/"abc123"' },
+})).status, 304);
+check("flere ETags, en matcher", (await call("GET", "/feed.xml", {
+  token: env.FEED_TOKEN, headers: { "If-None-Match": '"andet", W/"abc123"' },
+})).status, 304);
+check("stjerne matcher alt", (await call("GET", "/feed.xml", {
+  token: env.FEED_TOKEN, headers: { "If-None-Match": "*" },
+})).status, 304);
 
 console.log("\nOevrigt:");
 check("HEAD virker", (await call("HEAD", "/feed.xml", { token: env.FEED_TOKEN })).status, 200);
