@@ -7,8 +7,12 @@ det, der gaar galt. Tilstanden skrives desuden til en fil, saa baade
 from __future__ import annotations
 
 import json
+import socket
+import time
 import traceback
 from datetime import datetime, timezone
+
+import httpx
 
 from . import config
 
@@ -16,6 +20,13 @@ LOG_DIR = config.DATA_DIR / "logs"
 LOG_PATH = LOG_DIR / "update.log"
 STATE_PATH = config.DATA_DIR / "last_run.json"
 MAX_LOG_BYTES = 2_000_000
+
+# Efter en genstart er DNS tit ikke oppe endnu, naar timeren fyrer, og et
+# Wi-Fi-hikke ser ud paa samme maade. Det er ikke en fejl vaerd at give op
+# paa - vi venter bare lidt og proever igen.
+NETVAERKSFEJL = (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
+                 httpx.RemoteProtocolError, socket.gaierror, OSError)
+PAUSER = (15, 45, 120)
 
 
 def _stamp() -> str:
@@ -67,6 +78,23 @@ def _publish(state: dict) -> None:
     _save_state(state)
 
 
+def _er_netvaerksfejl(exc: BaseException) -> bool:
+    """Skeln mellem "nettet er ikke klar" og en rigtig fejl.
+
+    OSError er bred, saa vi ser paa hele kaeden af aarsager: en DNS-fejl
+    dukker op som gaierror dybt nede under httpx' egne undtagelser.
+    """
+    set_ = set()
+    while exc is not None and id(exc) not in set_:
+        set_.add(id(exc))
+        if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout,
+                            httpx.ReadTimeout, httpx.RemoteProtocolError,
+                            socket.gaierror)):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
+
+
 def run() -> int:
     """Hent, opsummer, publicer. Returnerer en exitkode.
 
@@ -75,8 +103,20 @@ def run() -> int:
     from . import auth, fetch, summarize
 
     try:
-        fstats = fetch.sync()
-        sstats = summarize.run(verbose=False)
+        # Baade hentning og opsummering er idempotente, saa et helt
+        # genforsoeg er ufarligt - det springer selv over, hvad der allerede
+        # er hentet og opsummeret.
+        for forsoeg, pause in enumerate((*PAUSER, None), start=1):
+            try:
+                fstats = fetch.sync()
+                sstats = summarize.run(verbose=False)
+                break
+            except Exception as exc:
+                if pause is None or not _er_netvaerksfejl(exc):
+                    raise
+                log(f"netvaerket er ikke klar ({exc}) - forsoeg {forsoeg}, "
+                    f"venter {pause}s")
+                time.sleep(pause)
     except auth.NeedsLogin as exc:
         log(f"SESSION DOED: {exc}")
         state = {"status": "kraever login", "besked": str(exc)}
