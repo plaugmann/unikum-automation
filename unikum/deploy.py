@@ -139,7 +139,7 @@ def enable_subdomain(client: httpx.Client, name: str) -> str:
 
 def deploy() -> dict:
     settings = _settings()
-    title = f"{settings['name']}-{settings['kv_binding'].lower()}"
+    title = f"{settings['name']}-kv"
     steps = []
 
     with _client() as client:

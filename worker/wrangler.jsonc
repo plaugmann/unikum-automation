@@ -7,11 +7,12 @@
   "compatibility_date": "2026-09-01",
   "observability": { "enabled": true },
 
-  // ID'et udfyldes af "wrangler kv namespace create FEED".
+  // Lageret hedder "unikum-feed-kv". ID'et er ikke en hemmelighed -
+  // det er ubrugeligt uden kontoens legitimationsoplysninger.
   "kv_namespaces": [
     {
       "binding": "FEED",
-      "id": "UDFYLD_MIG"
+      "id": "dc87308474634514a71240083da30d03"
     }
   ]
 
