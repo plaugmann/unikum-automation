@@ -96,6 +96,12 @@ Tilstanden vises også i `/healthz` og i `display.json` som `needs_login`, så
 skærmen i bryggerset kan sige til — ellers ville gamle beskeder se ud, som
 om alt var i orden.
 
+## Raspberry Pi
+
+Se [deploy/README.md](deploy/README.md). Kort: `bash deploy/install-pi.sh`
+opretter miljøet og en systemd-timer. Playwright har ingen Chromium til
+ARM64, så systemets bruges via `CHROMIUM_PATH`.
+
 ## Udgange
 
 Begge kræver `?token=<FEED_TOKEN>`.

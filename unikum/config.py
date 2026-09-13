@@ -12,6 +12,10 @@ load_dotenv(ROOT / ".env")
 DATA_DIR = ROOT / "data"
 ATTACHMENT_DIR = DATA_DIR / "attachments"
 PROFILE_DIR = ROOT / "browser_profile"
+
+# Playwright leverer ikke sin egen Chromium til ARM64 Linux, saa paa en
+# Raspberry Pi skal vi pege paa systemets - typisk /usr/bin/chromium.
+CHROMIUM_PATH = os.getenv("CHROMIUM_PATH", "").strip()
 TOKEN_CACHE = DATA_DIR / "tokens.json"
 COOKIE_CACHE = DATA_DIR / "cookies.json"
 DB_PATH = DATA_DIR / "unikum.db"

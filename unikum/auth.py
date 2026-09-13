@@ -208,12 +208,16 @@ def _harvest(headless: bool, timeout_ms: int, start_url: str | None = None) -> T
     """
     config.PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as pw:
-        ctx = pw.chromium.launch_persistent_context(
-            user_data_dir=str(config.PROFILE_DIR),
-            headless=headless,
-            viewport={"width": 1280, "height": 900},
-            locale="sv-SE",
-        )
+        indstillinger = {
+            "user_data_dir": str(config.PROFILE_DIR),
+            "headless": headless,
+            "viewport": {"width": 1280, "height": 900},
+            "locale": "sv-SE",
+        }
+        if config.CHROMIUM_PATH:
+            # Paa ARM64 Linux findes Playwrights egen Chromium ikke.
+            indstillinger["executable_path"] = config.CHROMIUM_PATH
+        ctx = pw.chromium.launch_persistent_context(**indstillinger)
         try:
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
 

@@ -1,0 +1,25 @@
+[Unit]
+Description=Hent nye beskeder fra Unikum, opsummer og publicer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/pi/unikum-automation
+ExecStart=/home/pi/unikum-automation/.venv/bin/python scripts/update.py
+
+# Koerslen skal vaere faerdig i god tid inden naeste time.
+TimeoutStartSec=25min
+
+# Chromium og Playwright vil skrive i HOME. Uden den er fejlen kryptisk.
+Environment=HOME=/home/pi
+
+# Vi henter fra en tredjepart og koerer LLM-kald - hold processen inde.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/pi/unikum-automation
+
+[Install]
+WantedBy=multi-user.target

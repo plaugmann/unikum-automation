@@ -1,0 +1,13 @@
+[Unit]
+Description=Koer Unikum-opdateringen hver time
+
+[Timer]
+OnCalendar=hourly
+# Spred belastningen, saa vi ikke rammer Unikum praecis paa slaget.
+RandomizedDelaySec=5min
+# Hent en koersel ind, hvis Pi'en har vaeret slukket.
+Persistent=true
+Unit=unikum-update.service
+
+[Install]
+WantedBy=timers.target
