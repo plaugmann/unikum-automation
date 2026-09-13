@@ -33,18 +33,48 @@ Behold dog følgende på svensk, uoversat:
 - Navne på systemer og tjenester: Unikum, Skola24, Classroom, Teams.
 - Skolens egne fagudtryk, fordi forældrene møder dem igen i skolens egen
   kommunikation: utvecklingssamtal, fritids, höstlov, studiedag, stängdag,
-  förskoleklass, mentor, matsäck.
+  förskoleklass, mellanstadiet, mentor, matsäck.
 Oversæt altså den forbindende tekst, ikke skolens begreber.
+
+Begynd aldrig en sætning med et svensk begreb skrevet med lille bogstav.
+Omskriv hellere, så sætningen starter med et dansk ord - fx "Derefter tager
+fritids over" frem for "fritids tager over".
+
+Almindelige tidsudtryk er IKKE skolebegreber og skal oversættes: "vecka 39"
+bliver til "uge 39", "måndag" til "mandag", "onsdag den 16 september" til
+"onsdag den 16. september". Brug dansk datoformat i den løbende tekst.
 
 Vær konkret og kortfattet - forælderen skal på få sekunder kunne se, om
 beskeden kræver noget af dem.
 
+Du skriver TO tekster af forskellig længde:
+
+"summary" er den korte. Den vises i oversigten og på en lille skærm.
+- To eller tre sætninger. Aldrig mere.
+- Den skal altid være KORTERE end kildeteksten. Er kilden i forvejen kort,
+  er én sætning nok - skriv aldrig mere end det, der står. At puste en kort
+  besked op er en fejl.
+
+"detail" er den lange. Den vises, når forælderen klikker beskeden op, og skal
+kunne læses alene, uden at man først har set "summary".
+- Tag ALT med, som en forælder kan få brug for: hver dato, hvert klokkeslæt,
+  hvert sted, beløb, navn, frist og undtagelse. Det er her, detaljerne hører
+  hjemme.
+- Skriv sammenhængende afsnit i almindelig prosa, adskilt af en tom linje.
+  Ét afsnit pr. emne.
+- Brug KUN punktopstilling til egentlige lister: flere datoer, flere
+  klokkeslæt, ting der skal medbringes, trin der skal følges. Sæt "- " forrest
+  på hver linje. Lav aldrig en punktopstilling af sætninger, der hører
+  naturligt sammen i et afsnit - det gør teksten sværere at læse, ikke
+  lettere. Et afsnit med ét enkelt punkt skal altid være prosa.
+- Du må gerne gentage det, "summary" siger - "detail" er den fulde udgave,
+  ikke en fortsættelse.
+- Længden skal følge kilden. Et langt brev eller en PDF på flere sider giver
+  en fyldig tekst; en besked på to linjer giver ingenting. Er der ikke mere
+  at sige end det, "summary" allerede siger, så sæt "detail" til null.
+- Find aldrig på noget. Står det ikke i kilden, kommer det ikke med.
+
 Regler:
-- Sammenfatningen skal altid være KORTERE end kildeteksten. Er kilden i
-  forvejen kort, er én sætning nok - skriv aldrig mere end det, der står.
-  At puste en kort besked op er en fejl.
-- Hold dig til to eller tre sætninger. Kun lange breve med mange separate
-  punkter må gå op til fem.
 - Tag alle datoer, klokkeslæt, steder og beløb med. Find aldrig på detaljer,
   der ikke står i teksten.
 - Kræves der noget af forælderen (tilmelde, sende med, betale, svare,
@@ -66,24 +96,27 @@ Kategorier - vælg altid den mest specifikke, der passer:
 - LEKTIE: lektier, gloser, prøver, læsning og andet, eleven skal lave hjemme.
 - MØDE: utvecklingssamtal, forældremøder, foredrag, temaaftener.
 - UDFLUGT: udflugter, rejser, friluftsdage, besøg uden for skolen.
-- SKEMA: ferie, studiedage, lukkedage, ændrede tider, aflyst undervisning,
-  forsinkelser.
+- SKEMA: kun når beskeden i det væsentlige handler om tid - ferie,
+  studiedage, lukkedage, ændrede tider, aflyst undervisning, forsinkelser.
+  Et bredt brev, der blandt meget andet også nævner nogle datoer, er INFO.
 - PRAKTISK: det forælderen skal ordne eller overholde - tilmeldinger, udstyr,
   tøj, betalinger, regler og politikker.
-- INFO: generel information uden krav om handling, fx månedsbreve og breve
-  fra rektor. Brug kun INFO, når ingen anden kategori passer.
+- INFO: bred eller blandet information, fx månadsbrev og breve fra rektor,
+  der dækker flere emner på én gang. Brug også INFO, når ingen anden
+  kategori passer.
 """
 
 SCHEMA = {
     "type": "object",
     "properties": {
         "summary": {"type": "string"},
+        "detail": {"type": ["string", "null"]},
         "category": {"type": "string", "enum": CATEGORIES},
         "action": {"type": ["string", "null"]},
         "due_date": {"type": ["string", "null"]},
         "headline": {"type": "string"},
     },
-    "required": ["summary", "category", "action", "due_date", "headline"],
+    "required": ["summary", "detail", "category", "action", "due_date", "headline"],
     "additionalProperties": False,
 }
 

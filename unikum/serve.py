@@ -8,6 +8,7 @@ baade TLS-certifikater og HTTP-basic-auth.
 from __future__ import annotations
 
 import hmac
+from html import escape
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
@@ -69,12 +70,62 @@ def _entry_url(item: dict) -> str:
     )
 
 
+def _text_to_html(text: str) -> str:
+    """Modellen skriver ren tekst med tomme linjer og "- " som punkttegn.
+
+    Vi oversaetter til HTML her frem for at bede modellen om markup - saa kan
+    den koncentrere sig om indholdet, og vi slipper for at stole paa markup
+    fra en generativ model i et feed.
+
+    Et afsnit kan sagtens blande prosa og punkter, fx en indledende linje
+    efterfulgt af en liste. Derfor behandles linjerne enkeltvis i stedet for
+    at kraeve at hele afsnittet er det ene eller det andet.
+    """
+    BULLETS = ("- ", "* ", "• ")
+    blocks: list[str] = []
+    paragraph: list[str] = []
+    bullets: list[str] = []
+
+    def flush_paragraph() -> None:
+        if paragraph:
+            blocks.append("<p>" + escape(" ".join(paragraph)) + "</p>")
+            paragraph.clear()
+
+    def flush_bullets() -> None:
+        if bullets:
+            items = "".join(f"<li>{escape(b)}</li>" for b in bullets)
+            blocks.append(f"<ul>{items}</ul>")
+            bullets.clear()
+
+    for raw_block in text.split("\n\n"):
+        for line in raw_block.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(BULLETS):
+                # En liste afslutter den prosa, der stod foran den.
+                flush_paragraph()
+                bullets.append(line[2:].strip())
+            else:
+                flush_bullets()
+                paragraph.append(line)
+        flush_bullets()
+        flush_paragraph()
+
+    flush_bullets()
+    flush_paragraph()
+    return "".join(blocks)
+
+
 def _description(item: dict) -> str:
-    parts = [f"<p>{item['summary']}</p>"]
+    # Den lange tekst er skrevet til at staa alene, saa den erstatter den
+    # korte - ellers ville laeseren se det samme sagt to gange.
+    body = item.get("detail") or item["summary"]
+    parts = [_text_to_html(body)]
     if item.get("action"):
-        parts.append(f"<p><strong>Skal gøres:</strong> {item['action']}</p>")
+        parts.append(f"<p><strong>Skal gøres:</strong> {escape(item['action'])}</p>")
     if item.get("due_date"):
-        parts.append(f"<p><strong>Dato:</strong> {item['due_date']}</p>")
+        parts.append(f"<p><strong>Dato:</strong> {escape(item['due_date'])}</p>")
 
     meta = []
     if item.get("title") and item["title"].strip() != (item.get("headline") or "").strip():

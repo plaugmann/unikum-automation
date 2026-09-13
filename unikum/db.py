@@ -47,7 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_attachments_entry ON attachments(entry_id);
 
 CREATE TABLE IF NOT EXISTS summaries (
     entry_id    TEXT PRIMARY KEY REFERENCES entries(id) ON DELETE CASCADE,
-    summary     TEXT NOT NULL,
+    summary     TEXT NOT NULL,           -- kort: oversigt og e-ink-skaerm
+    detail      TEXT,                    -- lang: vises naar man klikker ind
     category    TEXT,
     action      TEXT,                      -- hvad forael skal goere, hvis noget
     due_date    TEXT,                      -- ISO-dato hvis der er en deadline
@@ -71,9 +72,28 @@ def connect() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+# Kolonner der er kommet til efter at databasen blev taget i brug. De
+# tilfoejes ved opstart, saa en eksisterende database ikke skal smides vaek.
+MIGRATIONS = {
+    "summaries": {"detail": "TEXT"},
+}
+
+
+def _migrate(conn: sqlite3.Connection) -> list[str]:
+    applied = []
+    for table, columns in MIGRATIONS.items():
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for name, decl in columns.items():
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+                applied.append(f"{table}.{name}")
+    return applied
+
+
 def init() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
 
 
 def known_entry_ids() -> set[str]:
@@ -113,16 +133,16 @@ def save_summary(entry_id: str, data: dict[str, Any]) -> None:
     with connect() as conn:
         conn.execute(
             "INSERT INTO summaries "
-            "(entry_id, summary, category, action, due_date, headline, model, prompt_hash, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "(entry_id, summary, detail, category, action, due_date, headline, model, prompt_hash, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(entry_id) DO UPDATE SET "
-            "summary=excluded.summary, category=excluded.category, action=excluded.action, "
-            "due_date=excluded.due_date, headline=excluded.headline, model=excluded.model, "
-            "prompt_hash=excluded.prompt_hash, created_at=excluded.created_at",
+            "summary=excluded.summary, detail=excluded.detail, category=excluded.category, "
+            "action=excluded.action, due_date=excluded.due_date, headline=excluded.headline, "
+            "model=excluded.model, prompt_hash=excluded.prompt_hash, created_at=excluded.created_at",
             [
-                entry_id, data["summary"], data.get("category"), data.get("action"),
-                data.get("due_date"), data.get("headline"), data.get("model"),
-                data.get("prompt_hash"), data["created_at"],
+                entry_id, data["summary"], data.get("detail"), data.get("category"),
+                data.get("action"), data.get("due_date"), data.get("headline"),
+                data.get("model"), data.get("prompt_hash"), data["created_at"],
             ],
         )
 
@@ -163,7 +183,7 @@ def feed_items(limit: int = 100) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT e.id, e.kind, e.title, e.published, e.author, e.owner, e.contexts, "
             "       e.important, e.body_text, "
-            "       s.summary, s.category, s.action, s.due_date, s.headline "
+            "       s.summary, s.detail, s.category, s.action, s.due_date, s.headline "
             "FROM entries e JOIN summaries s ON s.entry_id = e.id "
             "ORDER BY e.published DESC LIMIT ?",
             (limit,),
