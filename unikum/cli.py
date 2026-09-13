@@ -73,6 +73,18 @@ def cmd_update(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_deploy(_args: argparse.Namespace) -> int:
+    from . import deploy
+
+    result = deploy.deploy()
+    for step in result["steps"]:
+        print(f"  {step}")
+    print()
+    print("Saet denne linje i .env:")
+    print(f"  CLOUD_URL={result['url']}")
+    return 0
+
+
 def cmd_publish(_args: argparse.Namespace) -> int:
     from . import config, publish
 
@@ -126,6 +138,8 @@ def main(argv: list[str] | None = None) -> int:
     p_sum.set_defaults(fn=cmd_summarize)
 
     sub.add_parser("update", help="Hent nyt og opsummer i ét hug").set_defaults(fn=cmd_update)
+
+    sub.add_parser("deploy", help="Udrul workeren til Cloudflare").set_defaults(fn=cmd_deploy)
 
     sub.add_parser("publish", help="Push feedet til skyen").set_defaults(fn=cmd_publish)
 

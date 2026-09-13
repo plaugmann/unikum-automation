@@ -45,3 +45,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", f"http://localhost:{PORT}")
 # koerer rent lokalt.
 CLOUD_URL = os.getenv("CLOUD_URL", "").strip()
 CLOUD_PUSH_TOKEN = os.getenv("CLOUD_PUSH_TOKEN", "").strip()
+
+# Bruges kun til at udrulle workeren, ikke i daglig drift.
+CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID", "").strip()
+CF_API_TOKEN = os.getenv("CF_API_TOKEN", "").strip()
