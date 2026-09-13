@@ -17,6 +17,27 @@ const ASSETS = {
   "display.json": "application/json; charset=utf-8",
 };
 
+/**
+ * Hvilken type har den oenskede fil - og maa den overhovedet hentes?
+ *
+ * Ud over de faste filer serverer vi én side pr. besked paa item/<id>.html,
+ * fordi RSS-laesere kaster fragmentet vaek og viser hele dokumentet. Uden en
+ * side pr. besked ville et klik vise alle beskeder paa én gang.
+ *
+ * Kun rene tal godtages som id, saa stien ikke kan bruges til at slaa noget
+ * som helst andet op i KV.
+ */
+function contentTypeFor(name) {
+  if (Object.prototype.hasOwnProperty.call(ASSETS, name)) return ASSETS[name];
+  if (name.startsWith("item/") && name.endsWith(".html")) {
+    const id = name.slice(5, -5);
+    if (id.length > 0 && [...id].every((c) => c >= "0" && c <= "9")) {
+      return "text/html; charset=utf-8";
+    }
+  }
+  return null;
+}
+
 /** Sammenligning uden at svartiden roeber, hvor langt et gaet naaede. */
 function safeEqual(a, b) {
   if (typeof a !== "string" || typeof b !== "string") return false;
@@ -58,7 +79,8 @@ export default {
     const url = new URL(request.url);
     const name = url.pathname.replace(/^\/+/, "") || "feed.xml";
 
-    if (!Object.prototype.hasOwnProperty.call(ASSETS, name)) {
+    const contentType = contentTypeFor(name);
+    if (!contentType) {
       return new Response("Ikke fundet\n", { status: 404 });
     }
 
@@ -104,7 +126,7 @@ export default {
     }
 
     const headers = {
-      "Content-Type": ASSETS[name],
+      "Content-Type": contentType,
       "Cache-Control": "private, max-age=300",
       "X-Robots-Tag": "noindex, nofollow",
     };

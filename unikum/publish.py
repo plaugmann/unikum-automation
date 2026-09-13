@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timezone
 
 import httpx
 
-from . import config, render
+from . import config, db, render
 
 TIMEOUT = 30.0
 
@@ -23,10 +24,24 @@ class PublishError(RuntimeError):
     pass
 
 
-def _put(client: httpx.Client, name: str, body: bytes, content_type: str) -> dict:
+def _put(
+    client: httpx.Client,
+    name: str,
+    body: bytes,
+    content_type: str,
+    *,
+    kendte: dict[str, str] | None = None,
+) -> dict | None:
+    """Laeg en fil op. Springer over, hvis den allerede ligger der uaendret.
+
+    KV har et dagligt loft paa skrivninger, og med én side pr. besked ville
+    en koersel hver time ellers skrive det samme igen og igen.
+    """
     # Hashen sendes med, saa workeren kan svare 304 uden at regne paa
     # indholdet ved hver eneste laesning.
     digest = hashlib.sha256(body).hexdigest()[:32]
+    if kendte is not None and kendte.get(name) == digest:
+        return None
     res = client.put(
         f"{config.CLOUD_URL.rstrip('/')}/{name}",
         content=body,
@@ -38,6 +53,8 @@ def _put(client: httpx.Client, name: str, body: bytes, content_type: str) -> dic
     )
     if res.status_code != 200:
         raise PublishError(f"{name}: HTTP {res.status_code} - {res.text.strip()[:200]}")
+    if kendte is not None:
+        db.mark_published(name, digest, datetime.now(timezone.utc).isoformat(timespec="seconds"))
     return {"navn": name, "bytes": len(body), "hash": digest}
 
 
@@ -55,13 +72,30 @@ def publish(limit: int = 60, count: int = 8, maxlen: int = 120) -> list[dict]:
     ).encode("utf-8")
 
     page = render.build_page(limit=limit)
+    kendte = db.published_hashes()
+    HTML = "text/html; charset=utf-8"
+    sendt: list[dict] = []
 
     with httpx.Client(timeout=TIMEOUT) as client:
-        return [
-            _put(client, "feed.xml", feed, "application/rss+xml; charset=utf-8"),
-            _put(client, "items.html", page, "text/html; charset=utf-8"),
-            _put(client, "display.json", display, "application/json; charset=utf-8"),
-        ]
+        # Én side pr. besked, saa et klik i RSS-appen viser netop den besked.
+        for item in db.feed_items(limit=limit):
+            res = _put(
+                client, f"item/{item['id']}.html",
+                render.build_item_page(item), HTML, kendte=kendte,
+            )
+            if res:
+                sendt.append(res)
+
+        for navn, krop, type_ in (
+            ("feed.xml", feed, "application/rss+xml; charset=utf-8"),
+            ("items.html", page, HTML),
+            ("display.json", display, "application/json; charset=utf-8"),
+        ):
+            res = _put(client, navn, krop, type_, kendte=kendte)
+            if res:
+                sendt.append(res)
+
+    return sendt
 
 
 def verify() -> dict:

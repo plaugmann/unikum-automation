@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS attachments (
 
 CREATE INDEX IF NOT EXISTS idx_attachments_entry ON attachments(entry_id);
 
+-- Hvad der allerede ligger i skyen. Uden det ville hver koersel skrive
+-- alle beskeder igen, og KV har et dagligt loft paa skrivninger.
+CREATE TABLE IF NOT EXISTS published (
+    key         TEXT PRIMARY KEY,
+    hash        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS summaries (
     entry_id    TEXT PRIMARY KEY REFERENCES entries(id) ON DELETE CASCADE,
     summary     TEXT NOT NULL,           -- kort: oversigt og e-ink-skaerm
@@ -175,6 +183,26 @@ def attachment_images(entry_id: str) -> list[sqlite3.Row]:
             "WHERE entry_id = ? AND local_path IS NOT NULL AND text IS NULL AND error IS NULL",
             (entry_id,),
         ))
+
+
+def published_hashes() -> dict[str, str]:
+    with connect() as conn:
+        return {r["key"]: r["hash"] for r in conn.execute("SELECT key, hash FROM published")}
+
+
+def mark_published(key: str, digest: str, when: str) -> None:
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO published (key, hash, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET hash=excluded.hash, updated_at=excluded.updated_at",
+            (key, digest, when),
+        )
+
+
+def forget_published() -> None:
+    """Glem hvad der er publiceret, saa naeste koersel sender alt igen."""
+    with connect() as conn:
+        conn.execute("DELETE FROM published")
 
 
 def feed_items(limit: int = 100) -> list[dict[str, Any]]:

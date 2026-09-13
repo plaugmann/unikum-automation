@@ -88,9 +88,11 @@ node worker/test.mjs
 |---|---|---|
 | `GET` | `/feed.xml?token=…` | `FEED_TOKEN` |
 | `GET` | `/items.html?token=…` | `FEED_TOKEN` |
+| `GET` | `/item/<id>.html?token=…` | `FEED_TOKEN` |
 | `GET` | `/display.json?token=…` | `FEED_TOKEN` |
 | `PUT` | `/feed.xml` | `Authorization: Bearer <PUSH_TOKEN>` |
 | `PUT` | `/items.html` | `Authorization: Bearer <PUSH_TOKEN>` |
+| `PUT` | `/item/<id>.html` | `Authorization: Bearer <PUSH_TOKEN>` |
 | `PUT` | `/display.json` | `Authorization: Bearer <PUSH_TOKEN>` |
 
 Læsninger svarer `304 Not Modified`, hvis intet er ændret siden sidst.
@@ -98,6 +100,9 @@ Afsenderen sender en hash med, som bliver til `ETag` — så sparer telefonerne
 data og batteri, når de henter ofte.
 
 ## Forbrug
+
+Afsenderen husker, hvad der allerede ligger deroppe, og sender kun det, der
+har ændret sig. En kørsel uden nye beskeder skriver derfor kun `display.json`.
 
 Gratis-niveauet dækker 100.000 læsninger og 1.000 skrivninger i døgnet.
 Ved kørsel hver time skriver vi 48 gange dagligt (to filer), og to telefoner

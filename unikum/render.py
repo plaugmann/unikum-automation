@@ -61,12 +61,14 @@ def item_link(item: dict) -> str:
     """Hvor feedets <link> skal pege hen.
 
     Foer pegede den paa Unikum, men Unikum kraever BankID, saa et klik paa
-    telefonen endte paa login-siden. Nu peger den paa vores egen side, hvor
-    hele teksten staar - med Unikum-linket nedenunder til de gange, man
-    faktisk er logget ind.
+    telefonen endte paa login-siden. Nu peger den paa vores egen side.
+
+    Én side pr. besked, ikke et anker i en samlet side: RSS-laesere kaster
+    tit fragmentet vaek og viser hele dokumentet, og saa faar man alle
+    beskeder i stedet for den, man klikkede paa.
     """
     base = (config.CLOUD_URL or config.PUBLIC_BASE_URL).rstrip("/")
-    return f"{base}/items.html?token={config.FEED_TOKEN}#item-{item['id']}"
+    return f"{base}/item/{item['id']}.html?token={config.FEED_TOKEN}"
 
 
 def text_to_html(text: str) -> str:
@@ -137,6 +139,17 @@ def description(item: dict) -> str:
     return "".join(parts)
 
 
+def _newest(items: list) -> datetime:
+    """Nyeste besked, ikke "lige nu".
+
+    Bruger vi klokken, aendrer feedet sig ved hver koersel, ETag'en skifter,
+    og telefonerne henter alle 33 KB igen - ogsaa naar intet er sket. Med
+    nyeste beskeds dato er feedet uaendret, indtil der faktisk er noget nyt.
+    """
+    datoer = [_parse_dt(i["published"]) for i in items if i.get("published")]
+    return max(datoer) if datoer else datetime.now(timezone.utc)
+
+
 def build_feed(limit: int = 60) -> bytes:
     """RSS 2.0 til en almindelig laeser."""
     items = db.feed_items(limit=limit)
@@ -150,7 +163,7 @@ def build_feed(limit: int = 60) -> bytes:
         "Beskeder fra Glasbruksskolan og Kryssaren, opsummeret på dansk"
     )
     ET.SubElement(channel, "language").text = "da-DK"
-    ET.SubElement(channel, "lastBuildDate").text = format_datetime(datetime.now(timezone.utc))
+    ET.SubElement(channel, "lastBuildDate").text = format_datetime(_newest(items))
     ET.SubElement(channel, "generator").text = f"unikum-automation (kode: {code_version()})"
 
     for item in items:
@@ -237,55 +250,77 @@ a { color:var(--accent); }
 
 
 def build_page(limit: int = 60) -> bytes:
-    """Én side med alle beskeder, med et anker pr. post."""
+    """Oversigt med alle beskeder. Bruges som indeks bag de enkelte sider."""
     items = db.feed_items(limit=limit)
-    now = datetime.now(timezone.utc).strftime("%d-%m-%Y %H:%M UTC")
+    seneste = _newest(items).strftime("%d-%m-%Y")
+    body = [
+        "<h1>Unikum – Max</h1>",
+        f'<p class="sub">Glasbruksskolan og Kryssaren · seneste besked {seneste}</p>',
+    ]
+    body.extend(_item_html(item, standalone=False) for item in items)
+    return _shell("Unikum – Max", "".join(body))
 
+
+def _item_html(item: dict, *, standalone: bool) -> str:
+    """Én besked som HTML. Bruges baade paa oversigten og paa sin egen side."""
+    headline = escape(item.get("headline") or item["title"])
+    label = CATEGORY_LABEL.get(item["category"], item["category"] or "")
+    meta = [(item["published"] or "")[:10]]
+    if item.get("author"):
+        meta.append(escape(item["author"]))
+    if item.get("owner"):
+        meta.append(escape(item["owner"]))
+
+    tag = "h1" if standalone else "h2"
     parts = [
+        f'<article id="item-{escape(str(item["id"]))}">',
+        f"<{tag}>{headline}</{tag}>",
+        # Adskillelsen skal vaere tegn og ikke CSS-margin: mange RSS-laesere
+        # fjerner stylesheetet, og saa loeb kategori og dato sammen.
+        f'<p class="meta"><span class="chip">{escape(label)}</span> '
+        + " · ".join(meta)
+        + "</p>",
+        text_to_html(item.get("detail") or item["summary"]),
+    ]
+
+    if item.get("action"):
+        due = f" (senest {escape(item['due_date'])})" if item.get("due_date") else ""
+        parts.append(
+            f'<p class="todo"><strong>Skal gøres:</strong> '
+            f"{escape(item['action'])}{due}</p>"
+        )
+
+    kilde = [f'<a href="{escape(entry_url(item))}">Åbn i Unikum</a> (kræver login)']
+    if item.get("title"):
+        kilde.append(f"Oprindeligt emne: {escape(item['title'])}")
+    names = [escape(a["filename"]) for a in item.get("attachments", [])]
+    if names:
+        kilde.append(f"Bilag: {', '.join(names)}")
+    parts.append('<p class="kilde">' + " · ".join(kilde) + "</p>")
+    parts.append("</article>")
+    return "".join(parts)
+
+
+def _shell(title: str, body: str) -> bytes:
+    return "".join([
         "<!doctype html><html lang=da><meta charset=utf-8>",
         '<meta name="viewport" content="width=device-width,initial-scale=1">',
         '<meta name="robots" content="noindex,nofollow">',
-        "<title>Unikum – Max</title>",
+        f"<title>{escape(title)}</title>",
         f"<style>{PAGE_CSS}</style>",
-        "<h1>Unikum – Max</h1>",
-        f'<p class="sub">Glasbruksskolan og Kryssaren · opdateret {now}</p>',
-    ]
+        body,
+        "</html>",
+    ]).encode("utf-8")
 
-    for item in items:
-        headline = escape(item.get("headline") or item["title"])
-        label = CATEGORY_LABEL.get(item["category"], item["category"] or "")
-        meta = []
-        if item.get("author"):
-            meta.append(escape(item["author"]))
-        if item.get("owner"):
-            meta.append(escape(item["owner"]))
 
-        parts.append(f'<article id="item-{escape(str(item["id"]))}">')
-        parts.append(f"<h2>{headline}</h2>")
-        parts.append('<p class="meta">')
-        parts.append(f'<span class="chip">{escape(label)}</span>')
-        parts.append((item["published"] or "")[:10])
-        if meta:
-            parts.append(" · " + " · ".join(meta))
-        parts.append("</p>")
+def build_item_page(item: dict) -> bytes:
+    """Én besked alene.
 
-        parts.append(text_to_html(item.get("detail") or item["summary"]))
-
-        if item.get("action"):
-            due = f" (senest {escape(item['due_date'])})" if item.get("due_date") else ""
-            parts.append(
-                f'<p class="todo"><strong>Skal gøres:</strong> '
-                f"{escape(item['action'])}{due}</p>"
-            )
-
-        names = [escape(a["filename"]) for a in item.get("attachments", [])]
-        kilde = [f'<a href="{escape(entry_url(item))}">Åbn i Unikum</a> (kræver login)']
-        if item.get("title"):
-            kilde.append(f"Oprindeligt emne: {escape(item['title'])}")
-        if names:
-            kilde.append(f"Bilag: {', '.join(names)}")
-        parts.append('<p class="kilde">' + " · ".join(kilde) + "</p>")
-        parts.append("</article>")
-
-    parts.append("</html>")
-    return "".join(parts).encode("utf-8")
+    RSS-laesere aabner det link, feedet angiver, og viser hele dokumentet.
+    Derfor skal hver besked have sin egen side - ellers ser man alle 17.
+    """
+    base = (config.CLOUD_URL or config.PUBLIC_BASE_URL).rstrip("/")
+    index = f'{base}/items.html?token={config.FEED_TOKEN}'
+    body = _item_html(item, standalone=True)
+    body += f'<p class="kilde"><a href="{escape(index)}">Alle beskeder</a></p>'
+    return _shell(item.get("headline") or item["title"], body)

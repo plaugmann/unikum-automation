@@ -45,6 +45,20 @@ def items(token: str = Query(...), limit: int = Query(60, ge=1, le=300)) -> Resp
     )
 
 
+@app.get("/item/{entry_id}.html")
+def item(entry_id: str, token: str = Query(...)) -> Response:
+    _check_token(token)
+    from . import db
+
+    for row in db.feed_items(limit=300):
+        if str(row["id"]) == entry_id:
+            return Response(
+                content=render.build_item_page(row),
+                media_type="text/html; charset=utf-8",
+            )
+    raise HTTPException(404, "Ukendt besked")
+
+
 @app.get("/display.json")
 def display(
     token: str = Query(...),

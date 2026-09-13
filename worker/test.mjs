@@ -1,4 +1,5 @@
 import worker from "./src/index.js";
+const NL = String.fromCharCode(10);
 
 const store = new Map();
 const env = {
@@ -67,6 +68,18 @@ check("flere ETags, en matcher", (await call("GET", "/feed.xml", {
 check("stjerne matcher alt", (await call("GET", "/feed.xml", {
   token: env.FEED_TOKEN, headers: { "If-None-Match": "*" },
 })).status, 304);
+
+console.log(NL + "Sider pr. besked:");
+check("PUT af beskedside", (await call("PUT", "/item/14757279201.html", {
+  body: "<h1>En besked</h1>", bearer: env.PUSH_TOKEN, headers: { "X-Content-Hash": "def456" },
+})).status, 200);
+const ip = await call("GET", "/item/14757279201.html", { token: env.FEED_TOKEN });
+check("GET af beskedside", ip.status, 200);
+check("beskedside er html", ip.headers.get("Content-Type"), "text/html; charset=utf-8");
+check("ukendt besked", (await call("GET", "/item/99999.html", { token: env.FEED_TOKEN })).status, 404);
+check("id skal vaere tal", (await call("GET", "/item/tokens.html", { token: env.FEED_TOKEN })).status, 404);
+check("ingen sti-traversering", (await call("GET", "/item/..%2Ffeed.xml.html", { token: env.FEED_TOKEN })).status, 404);
+check("beskedside kraever token", (await call("GET", "/item/14757279201.html")).status, 403);
 
 console.log("\nOevrigt:");
 check("HEAD virker", (await call("HEAD", "/feed.xml", { token: env.FEED_TOKEN })).status, 200);
