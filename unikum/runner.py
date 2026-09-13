@@ -46,6 +46,27 @@ def read_state() -> dict:
         return {"status": "ulaeselig tilstandsfil"}
 
 
+def _publish(state: dict) -> None:
+    """Laeg det faerdige feed op. Tilstanden skal vaere gemt foerst.
+
+    display.json henter sin status fra tilstandsfilen, saa publicerer vi
+    inden vi gemmer, baerer skaermen altid den forrige koersels status.
+    """
+    if not config.CLOUD_URL:
+        return
+    from . import publish
+
+    try:
+        sendt = publish.publish()
+        state["publiceret"] = len(sendt)
+    except Exception as exc:
+        # En fejl i skyen maa ikke se ud som om hentningen fejlede - de
+        # lokale data er opdaterede uanset hvad.
+        state["publicering"] = f"fejlede: {type(exc).__name__}: {exc}"
+        log(f"PUBLICERING FEJLEDE: {type(exc).__name__}: {exc}")
+    _save_state(state)
+
+
 def run() -> int:
     """Hent, opsummer, publicer. Returnerer en exitkode.
 
@@ -58,7 +79,11 @@ def run() -> int:
         sstats = summarize.run(verbose=False)
     except auth.NeedsLogin as exc:
         log(f"SESSION DOED: {exc}")
-        _save_state({"status": "kraever login", "besked": str(exc)})
+        state = {"status": "kraever login", "besked": str(exc)}
+        _save_state(state)
+        # Publicer alligevel, saa skaermen og feedet kan sige til. Det
+        # kraever ingen Unikum-session - vi laeser kun vores egen database.
+        _publish(state)
         return 2
     except Exception as exc:
         log(f"FEJL: {type(exc).__name__}: {exc}")
@@ -73,23 +98,12 @@ def run() -> int:
         "opsummeret": sstats["opsummeret"],
         "opsummeringsfejl": sstats["fejl"],
     }
-    linje = (f"{fstats['nye']} nye, {fstats['bilag']} bilag, "
-             f"{sstats['opsummeret']} opsummeret, {sstats['fejl']} fejl")
-
-    # Publicering er adskilt: en fejl i skyen maa ikke se ud som om
-    # hentningen fejlede, for de lokale data er opdaterede uanset hvad.
-    if config.CLOUD_URL:
-        from . import publish
-
-        try:
-            sendt = publish.publish()
-            state["publiceret"] = len(sendt)
-            linje += f", publiceret {len(sendt)}"
-        except Exception as exc:
-            state["status"] = "publicering fejlede"
-            state["besked"] = f"{type(exc).__name__}: {exc}"
-            linje += f", PUBLICERING FEJLEDE: {exc}"
-
-    log(linje)
+    # Gem foer vi publicerer, saa display.json baerer denne koersels status
+    # og ikke den forrige.
     _save_state(state)
+    _publish(state)
+
+    log(f"{fstats['nye']} nye, {fstats['bilag']} bilag, "
+        f"{sstats['opsummeret']} opsummeret, {sstats['fejl']} fejl"
+        + (f", publiceret {state['publiceret']}" if "publiceret" in state else ""))
     return 0
