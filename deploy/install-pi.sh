@@ -22,9 +22,13 @@ echo "    chromium: $CHROMIUM"
 
 echo "==> Python-miljoe"
 python3 -m venv .venv
-./.venv/bin/pip install --quiet --upgrade pip
-./.venv/bin/pip install --quiet -r requirements.txt
-# Bevidst UDEN "playwright install": vi bruger systemets chromium.
+./.venv/bin/pip install --upgrade pip
+./.venv/bin/pip install -r requirements.txt
+# Bevidst UDEN "playwright install": Playwright har ingen Chromium til
+# ARM64, saa vi bruger systemets via CHROMIUM_PATH.
+
+echo "==> Kontrol"
+./.venv/bin/python -c "import playwright, httpx, openai, bs4, pypdf, docx, fastapi; print('    alle pakker importeres')"
 
 echo "==> .env"
 if [ ! -f .env ]; then
