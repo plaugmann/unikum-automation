@@ -1,0 +1,21 @@
+{
+  // Cloudflare Worker der serverer feedet til telefonerne.
+  // Se worker/README.md for opsaetning.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "unikum-feed",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+
+  // ID'et udfyldes af "wrangler kv namespace create FEED".
+  "kv_namespaces": [
+    {
+      "binding": "FEED",
+      "id": "UDFYLD_MIG"
+    }
+  ]
+
+  // FEED_TOKEN og PUSH_TOKEN saettes som secrets, ikke her:
+  //   wrangler secret put FEED_TOKEN
+  //   wrangler secret put PUSH_TOKEN
+}

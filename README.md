@@ -46,6 +46,7 @@ cp .env.example .env      # udfyld OPENAI_API_KEY og FEED_TOKEN
 | `sync` | Henter beskeder og bilag til databasen. |
 | `summarize` | Opsummerer poster uden resumé. |
 | `update` | `sync` + `summarize`. Den, der skal køre på timer. |
+| `publish` | Pusher feedet til skyen og henter det tilbage som kontrol. |
 | `serve` | Starter webserveren. |
 
 ```bash
@@ -56,6 +57,28 @@ cp .env.example .env      # udfyld OPENAI_API_KEY og FEED_TOKEN
 Serveren indlæser `serve.py` én gang ved opstart. Ændrer du feedets udseende,
 skal den genstartes — eller startes med `serve --reload` under udvikling.
 Resuméerne læses derimod fra databasen ved hvert kald og er altid friske.
+
+## Lokalt eller i skyen
+
+Hentningen kan ikke flytte i skyen — BankID-sessionen lever i en browser på
+maskinen derhjemme. Men det færdige feed er en statisk fil på ca. 30 KB, og
+den kan sagtens ligge ude, så telefonerne kan nå den hjemmefra.
+
+```
+        HJEMME                         SKYEN
+  Unikum ─► sync ─► SQLite                  ┌─ telefon
+              └─► summarize ─┐              │
+                             ├─ render ─► Worker + KV ─┤
+        lokal server ────────┘   (push)                └─ ESP32
+```
+
+Vi **pusher** frem for at åbne hul ind til hjemmenettet. Skyen kender
+hverken BankID-sessionen, Unikum-tokens eller OpenAI-nøglen — kun det
+færdige feed. Går workeren ned, virker den lokale server uændret.
+
+Sæt `CLOUD_URL` og `CLOUD_PUSH_TOKEN` i `.env`, så publicerer `update`
+automatisk. Lad dem stå tomme for ren lokal drift. Se
+[worker/README.md](worker/README.md).
 
 ## Udgange
 
@@ -89,6 +112,7 @@ Går det alligevel galt, siger den til, og du logger ind igen med BankID.
 ## Status
 
 Virker: login, selvfornyende session, hentning, bilag (PDF/Word/txt/billeder),
-opsummering, RSS, JSON.
+opsummering på dansk med kort og lang tekst, RSS, JSON, publicering til
+Cloudflare.
 
-Mangler: planlagt kørsel, ESP32-klienten, hosting på Raspberry Pi.
+Mangler: planlagt kørsel, ESP32-klienten, flytning til Raspberry Pi.

@@ -39,3 +39,9 @@ FEED_TOKEN = os.getenv("FEED_TOKEN", "")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", f"http://localhost:{PORT}")
+
+# --- Skyen ----------------------------------------------------------------
+# Adressen paa Cloudflare-workeren. Er den tom, publiceres der ikke, og alt
+# koerer rent lokalt.
+CLOUD_URL = os.getenv("CLOUD_URL", "").strip()
+CLOUD_PUSH_TOKEN = os.getenv("CLOUD_PUSH_TOKEN", "").strip()

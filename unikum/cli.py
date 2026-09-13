@@ -54,10 +54,38 @@ def cmd_update(args: argparse.Namespace) -> int:
     """Hele kaeden: hent nyt og opsummer. Det er den, der skal koere paa timer."""
     from . import fetch, summarize
 
+    from . import config, publish
+
     fstats = fetch.sync()
     sstats = summarize.run(verbose=False)
-    print(f"{fstats['nye']} nye poster, {fstats['bilag']} bilag, "
-          f"{sstats['opsummeret']} opsummeret, {sstats['fejl']} fejl.")
+    linje = (f"{fstats['nye']} nye poster, {fstats['bilag']} bilag, "
+             f"{sstats['opsummeret']} opsummeret, {sstats['fejl']} fejl")
+
+    if config.CLOUD_URL:
+        # En fejl i skyen maa ikke se ud som om hentningen fejlede - det
+        # lokale feed er opdateret uanset hvad.
+        try:
+            sent = publish.publish()
+            linje += f", publiceret {len(sent)} filer"
+        except Exception as exc:
+            linje += f", PUBLICERING FEJLEDE: {exc}"
+    print(linje + ".")
+    return 0
+
+
+def cmd_publish(_args: argparse.Namespace) -> int:
+    from . import config, publish
+
+    if not config.CLOUD_URL:
+        print("CLOUD_URL er ikke sat i .env - der publiceres ikke.")
+        print("Se worker/README.md for opsaetning.")
+        return 1
+    for sent in publish.publish():
+        print(f"  sendte {sent['navn']}: {sent['bytes']} bytes")
+    check = publish.verify()
+    print(f"Hentet tilbage: HTTP {check['status']}, {check['bytes']} bytes, "
+          f"ETag {check['etag']}")
+    print("Afviser forkert token:", "ja" if check["afviser_forkert_token"] else "NEJ - undersoeg!")
     return 0
 
 
@@ -98,6 +126,8 @@ def main(argv: list[str] | None = None) -> int:
     p_sum.set_defaults(fn=cmd_summarize)
 
     sub.add_parser("update", help="Hent nyt og opsummer i ét hug").set_defaults(fn=cmd_update)
+
+    sub.add_parser("publish", help="Push feedet til skyen").set_defaults(fn=cmd_publish)
 
     p_serve = sub.add_parser("serve", help="Start webserveren med feed og skaermdata")
     p_serve.add_argument("--host", default=None)
