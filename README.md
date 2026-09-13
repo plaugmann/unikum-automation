@@ -80,6 +80,22 @@ Sæt `CLOUD_URL` og `CLOUD_PUSH_TOKEN` i `.env`, så publicerer `update`
 automatisk. Lad dem stå tomme for ren lokal drift. Se
 [worker/README.md](worker/README.md).
 
+## Planlagt kørsel
+
+En opgave i Windows Opgavestyring kører `scripts/update.py` hver time med
+`pythonw.exe`, så der ikke blinker et konsolvindue. Alt output går i
+`data/logs/update.log`, og tilstanden skrives til `data/last_run.json`.
+
+Exitkoder: `0` alt vel, `2` sessionen kræver BankID, `1` andet gik galt.
+
+```powershell
+Get-ScheduledTaskInfo -TaskName "Unikum feed"
+```
+
+Tilstanden vises også i `/healthz` og i `display.json` som `needs_login`, så
+skærmen i bryggerset kan sige til — ellers ville gamle beskeder se ud, som
+om alt var i orden.
+
 ## Udgange
 
 Begge kræver `?token=<FEED_TOKEN>`.
@@ -118,4 +134,8 @@ Virker: login, selvfornyende session, hentning, bilag (PDF/Word/txt/billeder),
 opsummering på dansk med kort og lang tekst, RSS, JSON, publicering til
 Cloudflare.
 
-Mangler: planlagt kørsel, ESP32-klienten, flytning til Raspberry Pi.
+Mangler: ESP32-klienten, flytning til Raspberry Pi.
+
+Sessionens levetid er stadig ukendt. Første måling: den var død efter ca. 15
+timer uden kontakt. Om timedrift holder den i live afhænger af, om Malmö
+stads IdP bruger en inaktivitetsfrist eller en fast maksimal levetid.

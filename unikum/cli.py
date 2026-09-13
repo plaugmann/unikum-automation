@@ -50,27 +50,13 @@ def cmd_summarize(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_update(args: argparse.Namespace) -> int:
-    """Hele kaeden: hent nyt og opsummer. Det er den, der skal koere paa timer."""
-    from . import fetch, summarize
+def cmd_update(_args: argparse.Namespace) -> int:
+    """Hele kaeden. Det er den, der koerer paa timer."""
+    from . import runner
 
-    from . import config, publish
-
-    fstats = fetch.sync()
-    sstats = summarize.run(verbose=False)
-    linje = (f"{fstats['nye']} nye poster, {fstats['bilag']} bilag, "
-             f"{sstats['opsummeret']} opsummeret, {sstats['fejl']} fejl")
-
-    if config.CLOUD_URL:
-        # En fejl i skyen maa ikke se ud som om hentningen fejlede - det
-        # lokale feed er opdateret uanset hvad.
-        try:
-            sent = publish.publish()
-            linje += f", publiceret {len(sent)} filer"
-        except Exception as exc:
-            linje += f", PUBLICERING FEJLEDE: {exc}"
-    print(linje + ".")
-    return 0
+    code = runner.run()
+    print(runner.read_state())
+    return code
 
 
 def cmd_deploy(_args: argparse.Namespace) -> int:

@@ -71,6 +71,12 @@ def display(
 
 @app.get("/healthz")
 def healthz() -> dict:
-    from . import auth
+    from . import auth, runner
 
-    return {"ok": True, "session": auth.status(), "kode": render.code_version()}
+    state = runner.read_state()
+    return {
+        "ok": state.get("status") == "ok",
+        "sidste_koersel": state,
+        "session": auth.status(),
+        "kode": render.code_version(),
+    }

@@ -208,8 +208,16 @@ def build_display(count: int = 5, maxlen: int = 120) -> dict[str, Any]:
             "action": bool(item.get("action")),
         })
 
+    from . import runner
+
+    state = runner.read_state()
     return {
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        # Skaermen i bryggerset skal kunne vise, at systemet har mistet
+        # sessionen - ellers ser gamle beskeder ud som om alt er i orden.
+        "status": state.get("status", "ukendt"),
+        "last_run": state.get("tidspunkt"),
+        "needs_login": state.get("status") == "kraever login",
         "count": len(out),
         "items": out,
     }
