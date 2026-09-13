@@ -57,6 +57,18 @@ def entry_url(item: dict) -> str:
     )
 
 
+def item_link(item: dict) -> str:
+    """Hvor feedets <link> skal pege hen.
+
+    Foer pegede den paa Unikum, men Unikum kraever BankID, saa et klik paa
+    telefonen endte paa login-siden. Nu peger den paa vores egen side, hvor
+    hele teksten staar - med Unikum-linket nedenunder til de gange, man
+    faktisk er logget ind.
+    """
+    base = (config.CLOUD_URL or config.PUBLIC_BASE_URL).rstrip("/")
+    return f"{base}/items.html?token={config.FEED_TOKEN}#item-{item['id']}"
+
+
 def text_to_html(text: str) -> str:
     """Modellen skriver ren tekst med tomme linjer og "- " som punkttegn.
 
@@ -148,7 +160,7 @@ def build_feed(limit: int = 60) -> bytes:
         # vi viser LLM'ens overskrift. Originaltitlen staar i metalinjen.
         headline = item.get("headline") or item["title"]
         ET.SubElement(node, "title").text = f"[{prefix}] {headline}".strip()
-        ET.SubElement(node, "link").text = entry_url(item)
+        ET.SubElement(node, "link").text = item_link(item)
         # Stabil guid: samme post skal aldrig dukke op som ny i laeseren.
         guid = ET.SubElement(node, "guid", {"isPermaLink": "false"})
         guid.text = f"unikum-{item['id']}"
@@ -188,3 +200,92 @@ def build_display(count: int = 5, maxlen: int = 120) -> dict[str, Any]:
         "count": len(out),
         "items": out,
     }
+
+
+# --- Laesbar HTML-side ----------------------------------------------------
+# Feedets <link> pegede foer paa Unikum, men Unikum kraever BankID, saa paa
+# en telefon endte man bare paa login-siden. Vi serverer derfor selv siden.
+# Alle beskeder samles paa én side med et anker pr. post, saa publicering
+# koster én skrivning i stedet for én pr. besked.
+
+PAGE_CSS = """
+:root { color-scheme: light dark; --bg:#fff; --fg:#1a1a1a; --muted:#666;
+        --line:#e3e3e3; --chip:#eef1f4; --accent:#1a5fb4; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#16181c; --fg:#e6e6e6; --muted:#9aa0a6; --line:#2c2f36;
+          --chip:#23262d; --accent:#7aa9f7; }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+       font:16px/1.6 -apple-system, "Segoe UI", Roboto, sans-serif;
+       padding:1rem; max-width:44rem; margin-inline:auto; }
+h1 { font-size:1.3rem; margin:0 0 .25rem; }
+.sub { color:var(--muted); font-size:.85rem; margin-bottom:2rem; }
+article { border-top:1px solid var(--line); padding:1.75rem 0; }
+article:target { background:var(--chip); margin-inline:-.75rem;
+                 padding-inline:.75rem; border-radius:.5rem; }
+h2 { font-size:1.1rem; margin:0 0 .5rem; }
+.meta { color:var(--muted); font-size:.8rem; margin-bottom:1rem; }
+.chip { background:var(--chip); border-radius:1rem; padding:.15rem .6rem;
+        font-size:.75rem; margin-right:.5rem; white-space:nowrap; }
+.todo { border-left:3px solid var(--accent); padding:.5rem .9rem;
+        margin:1rem 0; background:var(--chip); border-radius:0 .3rem .3rem 0; }
+ul { padding-left:1.2rem; }
+a { color:var(--accent); }
+.kilde { font-size:.8rem; color:var(--muted); margin-top:1rem; }
+"""
+
+
+def build_page(limit: int = 60) -> bytes:
+    """Én side med alle beskeder, med et anker pr. post."""
+    items = db.feed_items(limit=limit)
+    now = datetime.now(timezone.utc).strftime("%d-%m-%Y %H:%M UTC")
+
+    parts = [
+        "<!doctype html><html lang=da><meta charset=utf-8>",
+        '<meta name="viewport" content="width=device-width,initial-scale=1">',
+        '<meta name="robots" content="noindex,nofollow">',
+        "<title>Unikum – Max</title>",
+        f"<style>{PAGE_CSS}</style>",
+        "<h1>Unikum – Max</h1>",
+        f'<p class="sub">Glasbruksskolan og Kryssaren · opdateret {now}</p>',
+    ]
+
+    for item in items:
+        headline = escape(item.get("headline") or item["title"])
+        label = CATEGORY_LABEL.get(item["category"], item["category"] or "")
+        meta = []
+        if item.get("author"):
+            meta.append(escape(item["author"]))
+        if item.get("owner"):
+            meta.append(escape(item["owner"]))
+
+        parts.append(f'<article id="item-{escape(str(item["id"]))}">')
+        parts.append(f"<h2>{headline}</h2>")
+        parts.append('<p class="meta">')
+        parts.append(f'<span class="chip">{escape(label)}</span>')
+        parts.append((item["published"] or "")[:10])
+        if meta:
+            parts.append(" · " + " · ".join(meta))
+        parts.append("</p>")
+
+        parts.append(text_to_html(item.get("detail") or item["summary"]))
+
+        if item.get("action"):
+            due = f" (senest {escape(item['due_date'])})" if item.get("due_date") else ""
+            parts.append(
+                f'<p class="todo"><strong>Skal gøres:</strong> '
+                f"{escape(item['action'])}{due}</p>"
+            )
+
+        names = [escape(a["filename"]) for a in item.get("attachments", [])]
+        kilde = [f'<a href="{escape(entry_url(item))}">Åbn i Unikum</a> (kræver login)']
+        if item.get("title"):
+            kilde.append(f"Oprindeligt emne: {escape(item['title'])}")
+        if names:
+            kilde.append(f"Bilag: {', '.join(names)}")
+        parts.append('<p class="kilde">' + " · ".join(kilde) + "</p>")
+        parts.append("</article>")
+
+    parts.append("</html>")
+    return "".join(parts).encode("utf-8")

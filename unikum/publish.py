@@ -54,9 +54,12 @@ def publish(limit: int = 60, count: int = 8, maxlen: int = 120) -> list[dict]:
         ensure_ascii=False,
     ).encode("utf-8")
 
+    page = render.build_page(limit=limit)
+
     with httpx.Client(timeout=TIMEOUT) as client:
         return [
             _put(client, "feed.xml", feed, "application/rss+xml; charset=utf-8"),
+            _put(client, "items.html", page, "text/html; charset=utf-8"),
             _put(client, "display.json", display, "application/json; charset=utf-8"),
         ]
 

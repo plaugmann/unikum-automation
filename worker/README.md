@@ -87,8 +87,10 @@ node worker/test.mjs
 | Metode | Sti | Adgang |
 |---|---|---|
 | `GET` | `/feed.xml?token=…` | `FEED_TOKEN` |
+| `GET` | `/items.html?token=…` | `FEED_TOKEN` |
 | `GET` | `/display.json?token=…` | `FEED_TOKEN` |
 | `PUT` | `/feed.xml` | `Authorization: Bearer <PUSH_TOKEN>` |
+| `PUT` | `/items.html` | `Authorization: Bearer <PUSH_TOKEN>` |
 | `PUT` | `/display.json` | `Authorization: Bearer <PUSH_TOKEN>` |
 
 Læsninger svarer `304 Not Modified`, hvis intet er ændret siden sidst.

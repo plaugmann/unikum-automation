@@ -13,6 +13,7 @@
 
 const ASSETS = {
   "feed.xml": "application/rss+xml; charset=utf-8",
+  "items.html": "text/html; charset=utf-8",
   "display.json": "application/json; charset=utf-8",
 };
 

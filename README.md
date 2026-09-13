@@ -86,6 +86,9 @@ Begge kræver `?token=<FEED_TOKEN>`.
 
 - `GET /feed.xml` – RSS til en almindelig læser. Ét punkt pr. besked,
   sorteret efter dato, med kategori i titlen.
+- `GET /items.html` – læsbar side med alle beskeder, ét anker pr. post.
+  Feedets links peger hertil, fordi Unikum kræver BankID og et klik derfor
+  ville ende på login-siden på telefonen.
 - `GET /display.json` – fladtrykt udgave til en ESP32 med e-ink-skærm.
   `?count=5&maxlen=120` styrer, hvor meget der skal være plads til.
 - `GET /healthz` – sessionens tilstand.

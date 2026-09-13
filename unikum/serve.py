@@ -36,6 +36,15 @@ def feed(token: str = Query(...), limit: int = Query(60, ge=1, le=300)) -> Respo
     )
 
 
+@app.get("/items.html")
+def items(token: str = Query(...), limit: int = Query(60, ge=1, le=300)) -> Response:
+    _check_token(token)
+    return Response(
+        content=render.build_page(limit=limit),
+        media_type="text/html; charset=utf-8",
+    )
+
+
 @app.get("/display.json")
 def display(
     token: str = Query(...),
